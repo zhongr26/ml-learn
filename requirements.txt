@@ -1,0 +1,43 @@
+# ============================================================
+# 机器学习基础环境 requirements.txt (兼容修复版)
+# 适用: conda 虚拟环境 (Python 3.10 ~ 3.12)
+# ============================================================
+
+# ---------- 深度学习核心框架 (CUDA 12.4) ----------
+# 严格匹配版本，torch / torchvision / torchaudio 三者必须同步
+# 安装命令:
+#   pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu124
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.5.1
+torchvision==0.20.1
+torchaudio==2.5.1
+
+# ---------- 训练框架 ----------
+# Lightning 2.5.1 与 PyTorch 2.6 和 Transformers 4.53 兼容
+lightning==2.5.1
+
+# ---------- 数据处理与科学计算 ----------
+numpy>=1.26.0,<2.0.0
+pandas>=2.2.0
+scipy>=1.13.0
+scikit-learn>=1.5.0
+
+# ---------- 可视化 ----------
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# ---------- 深度学习工具与模型库 ----------
+# 锁定 transformers 版本以确保与 torch 2.6 和 lightning 2.5.1 的兼容性
+transformers==4.53.0
+datasets>=2.20.0
+accelerate>=0.33.0
+
+# ---------- 辅助工具 ----------
+pillow>=12.3.0
+python-dotenv>=1.0.1
+
+# ---------- 实验管理与监控 ----------
+tensorboard>=2.17.0
+
+# ---------- 工程化与部署 ----------
+joblib>=1.4.0
