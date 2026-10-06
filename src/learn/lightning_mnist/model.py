@@ -23,6 +23,7 @@ class LitAutoModel(L.LightningModule):
         self.lr = lr
 
     def forward(self, x):
+        x = torch.flatten(x, 1)
         return self.encoder(x)
 
     def _shared_step(self, batch, stage):

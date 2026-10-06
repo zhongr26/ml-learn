@@ -1,6 +1,2 @@
 .env
-datasets/
-checkpoints/
-logs/
-outputs/
 tutorials/

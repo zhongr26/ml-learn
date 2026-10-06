@@ -15,7 +15,7 @@ def save_and_load_demo(ckpt_path):
     torch.jit.save(model.to_torchscript(), scripted_path)
 
     new_model = LitAutoModel(latent_dim=LATENT_DIM)
-    new_model.load_state_dict(torch.load(state_path))
+    new_model.load_state_dict(torch.load(state_path, weights_only=True))
     new_model.eval()
     print("模型加载成功。")
 

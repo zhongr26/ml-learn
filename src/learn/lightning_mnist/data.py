@@ -1,14 +1,24 @@
 import lightning as L
+import torch
 import torch.utils.data as data
 import torchvision.datasets as datasets
 import torchvision.transforms as T
 
-from config import (MNIST_DATA_DIR, BATCH_SIZE, NUM_WORKERS)
+from config import (MNIST_DATA_DIR, MNIST_HPARAMS)
 
 
 class MNISTDataModule(L.LightningDataModule):
-    def __init__(self, data_dir=MNIST_DATA_DIR, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS):
+    def __init__(self,
+                 data_dir=MNIST_DATA_DIR,
+                 batch_size=MNIST_HPARAMS["batch_size"],
+                 num_workers=MNIST_HPARAMS["num_workers"]):
         super().__init__()
+
+        # initialized in self.setup()
+        self.train_set = None
+        self.val_set = None
+        self.test_set = None
+
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -40,35 +50,26 @@ class MNISTDataModule(L.LightningDataModule):
                 self.data_dir, train=False, transform=self.eval_transform
             )
 
-    def train_dataloader(self):
-        return data.DataLoader(
-            self.train_set,
+    def _loader(self, dataset, shuffle):
+        kwargs = dict(
             batch_size=self.batch_size,
+            shuffle=shuffle,
             num_workers=self.num_workers,
-            shuffle=True,
-            pin_memory=True,
-            persistent_workers=True,
+            pin_memory=torch.cuda.is_available(),
         )
+        if self.num_workers > 0:
+            kwargs["persistent_workers"] = True
+            kwargs["prefetch_factor"] = 4
+        return data.DataLoader(dataset, **kwargs)
+
+    def train_dataloader(self):
+        return self._loader(self.train_set, shuffle=True)
 
     def val_dataloader(self):
-        return data.DataLoader(
-            self.val_set,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            shuffle=False,
-            pin_memory=True,
-            persistent_workers=True,
-        )
+        return self._loader(self.val_set, shuffle=False)
 
     def test_dataloader(self):
-        return data.DataLoader(
-            self.test_set,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            shuffle=False,
-            pin_memory=True,
-            persistent_workers=True,
-        )
+        return self._loader(self.test_set, shuffle=False)
 
     def predict_dataloader(self):
         return self.test_dataloader()

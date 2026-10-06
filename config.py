@@ -125,23 +125,6 @@ for _d in _ALL_DIRS:
     _d.mkdir(parents=True, exist_ok=True)
 
 # ============================================================
-# 对外暴露
-# ============================================================
-__all__ = [
-    "PROJECT_ROOT",
-    # 根目录
-    "BASE_DATA_DIR", "BASE_CHECKPOINT_DIR", "BASE_LOG_DIR", "BASE_OUTPUT_DIR",
-    # MNIST
-    "MNIST_DATA_DIR", "MNIST_CHECKPOINT_DIR", "MNIST_LOG_DIR", "MNIST_OUTPUT_DIR",
-    "MNIST_HPARAMS",
-    # 全局超参
-    "BATCH_SIZE", "NUM_WORKERS", "LATENT_DIM", "LEARNING_RATE",
-    "MAX_EPOCHS", "PATIENCE", "SAVE_TOP_K", "SEED",
-    # 工具
-    "dataset_dirs", "dataset_hparams",
-]
-
-# ============================================================
 # 调试入口：python config.py
 # ============================================================
 if __name__ == "__main__":
@@ -161,3 +144,53 @@ if __name__ == "__main__":
     print("\n[MNIST 有效超参]")
     for k, v in MNIST_HPARAMS.items():
         print(f"  {k:15s} = {v}")
+
+# ============================================================
+# matplotlib 中文字体配置
+# ============================================================
+import matplotlib
+import matplotlib.pyplot as plt
+
+
+def setup_matplotlib_chinese():
+    """配置 matplotlib 支持中文显示，并修复负号问题。"""
+    # 按优先级尝试可用字体
+    preferred_fonts = [
+        "Microsoft YaHei",  # Windows 微软雅黑
+        "SimHei",  # Windows 黑体
+        "PingFang SC",  # macOS 苹方
+        "Heiti SC",  # macOS 黑体
+        "WenQuanYi Zen Hei",  # Linux 文泉驿
+        "Noto Sans CJK SC",  # Google Noto
+    ]
+    available = {f.name for f in matplotlib.font_manager.fontManager.ttflist}
+    chosen = next((f for f in preferred_fonts if f in available), None)
+
+    if chosen:
+        plt.rcParams["font.sans-serif"] = [chosen]
+        print(f"[matplotlib] 使用中文字体: {chosen}")
+    else:
+        print("[matplotlib] 未找到中文字体，中文将显示为方块。")
+        print("  可用字体示例:", sorted(available)[:10])
+
+    plt.rcParams["axes.unicode_minus"] = False  # 修复负号显示
+    return chosen
+
+
+# ============================================================
+# 对外暴露
+# ============================================================
+__all__ = [
+    "PROJECT_ROOT",
+    # 根目录
+    "BASE_DATA_DIR", "BASE_CHECKPOINT_DIR", "BASE_LOG_DIR", "BASE_OUTPUT_DIR",
+    # MNIST
+    "MNIST_DATA_DIR", "MNIST_CHECKPOINT_DIR", "MNIST_LOG_DIR", "MNIST_OUTPUT_DIR",
+    "MNIST_HPARAMS",
+    # 全局超参
+    "BATCH_SIZE", "NUM_WORKERS", "LATENT_DIM", "LEARNING_RATE",
+    "MAX_EPOCHS", "PATIENCE", "SAVE_TOP_K", "SEED",
+    # 工具
+    "dataset_dirs", "dataset_hparams",
+    "setup_matplotlib_chinese"
+]

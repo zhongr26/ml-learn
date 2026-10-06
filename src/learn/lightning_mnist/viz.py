@@ -1,10 +1,13 @@
-import matplotlib.pyplot as plt
 import torch
 import torch.utils.data as data
 import torchvision as tv
 from torchvision.utils import make_grid, save_image
 
 from config import MNIST_DATA_DIR, MNIST_OUTPUT_DIR
+from config import setup_matplotlib_chinese
+
+setup_matplotlib_chinese()
+import matplotlib.pyplot as plt
 
 
 @torch.no_grad()
