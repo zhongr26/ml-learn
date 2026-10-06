@@ -27,11 +27,14 @@ class MNISTDataModule(L.LightningDataModule):
             T.RandomRotation(10),
             T.RandomAffine(0, translate=(0.1, 0.1)),
             T.ToTensor(),
-            T.Normalize((0.1307,), (0.3081,))
+            # T.Normalize((0.1307,), (0.3081,))
+            # 输入归一化到 [-1,1]，解码器用 Tanh
+            T.Normalize((0.5,), (0.5,))
         ])
         self.eval_transform = T.Compose([
             T.ToTensor(),
-            T.Normalize((0.1307,), (0.3081,))
+            # T.Normalize((0.1307,), (0.3081,))
+            T.Normalize((0.5,), (0.5,))
         ])
 
     def prepare_data(self):
