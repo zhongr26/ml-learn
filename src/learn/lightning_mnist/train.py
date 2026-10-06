@@ -5,12 +5,21 @@ from lightning.pytorch.callbacks import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from config import (SEED, MNIST_CHECKPOINT_DIR, SAVE_TOP_K, PATIENCE, MNIST_LOG_DIR, MAX_EPOCHS, LATENT_DIM,
-                    LEARNING_RATE)
+                    LEARNING_RATE, RETRAIN)
 from .data import MNISTDataModule
 from .model import LitAutoModel
 
 
 def train():
+    ckpt_dir = MNIST_CHECKPOINT_DIR / "mnist"
+    last_ckpt = ckpt_dir / "last.ckpt"
+
+    # 已有训练好的 checkpoint 时跳过训练，直接复用（RETRAIN=1 强制重新训练）
+    if not RETRAIN and last_ckpt.exists():
+        print(f"[train] 检测到已有 checkpoint，跳过训练: {last_ckpt}")
+        print("[train] 如需重新训练，请设置环境变量 RETRAIN=1")
+        return str(last_ckpt)
+
     L.seed_everything(SEED, workers=True)
     dm = MNISTDataModule()
 

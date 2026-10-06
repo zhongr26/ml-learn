@@ -90,6 +90,8 @@ MAX_EPOCHS = _env_int("MAX_EPOCHS", 20)
 PATIENCE = _env_int("PATIENCE", 5)
 SAVE_TOP_K = _env_int("SAVE_TOP_K", 3)
 SEED = _env_int("SEED", 42)
+# 设为 1/true 时强制重新训练，否则已有 checkpoint 直接复用
+RETRAIN = os.getenv("RETRAIN", "0").lower() in ("1", "true", "yes")
 
 
 # ============================================================
@@ -189,7 +191,7 @@ __all__ = [
     "MNIST_HPARAMS",
     # 全局超参
     "BATCH_SIZE", "NUM_WORKERS", "LATENT_DIM", "LEARNING_RATE",
-    "MAX_EPOCHS", "PATIENCE", "SAVE_TOP_K", "SEED",
+    "MAX_EPOCHS", "PATIENCE", "SAVE_TOP_K", "SEED", "RETRAIN",
     # 工具
     "dataset_dirs", "dataset_hparams",
     "setup_matplotlib_chinese"

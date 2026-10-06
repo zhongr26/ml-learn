@@ -15,6 +15,8 @@ def main():
     best_ckpt = train()
     model = save_and_load_demo(best_ckpt)
     dm = MNISTDataModule()
+    dm.prepare_data()
+    dm.setup("test")
 
     # 基础重建
     demo_reconstruction(model)

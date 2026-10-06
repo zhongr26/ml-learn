@@ -18,6 +18,7 @@ class MNISTDataModule(L.LightningDataModule):
         self.train_set = None
         self.val_set = None
         self.test_set = None
+        self._test_loader = None
 
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -72,7 +73,10 @@ class MNISTDataModule(L.LightningDataModule):
         return self._loader(self.val_set, shuffle=False)
 
     def test_dataloader(self):
-        return self._loader(self.test_set, shuffle=False)
+        # 缓存 loader，避免每次调用都重新 spawn worker（Windows 上开销很大）
+        if self._test_loader is None:
+            self._test_loader = self._loader(self.test_set, shuffle=False)
+        return self._test_loader
 
     def predict_dataloader(self):
         return self.test_dataloader()

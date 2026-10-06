@@ -1,3 +1,4 @@
+import multiprocessing
 import torch
 import torch.utils.data as data
 import torchvision as tv
@@ -6,7 +7,9 @@ from torchvision.utils import make_grid, save_image
 from config import MNIST_DATA_DIR, MNIST_OUTPUT_DIR
 from config import setup_matplotlib_chinese
 
-setup_matplotlib_chinese()
+# DataLoader worker 进程通过 spawn 重新导入本模块，跳过字体配置避免重复扫描
+if multiprocessing.current_process().name == "MainProcess":
+    setup_matplotlib_chinese()
 import matplotlib.pyplot as plt
 
 
@@ -103,6 +106,7 @@ def demo_tsne_umap(model, dm, max_samples=3000, method="tsne"):
     y = torch.cat(ys).numpy()[:max_samples]
 
     # 降维
+    print(f"[viz] 正在计算 {method.upper()}（n={len(z)}），可能需要数十秒...", flush=True)
     if method == "tsne":
         from sklearn.manifold import TSNE
         z_2d = TSNE(
@@ -118,6 +122,7 @@ def demo_tsne_umap(model, dm, max_samples=3000, method="tsne"):
         z_2d = umap.UMAP(
             n_components=2, n_neighbors=15,
             min_dist=0.1, random_state=42,
+            n_jobs=1,  # random_state 会强制 n_jobs=1，显式指定以消除警告
         ).fit_transform(z)
     else:
         raise ValueError(f"未知方法: {method}")
@@ -146,10 +151,9 @@ def demo_interpolation(model, dm, n_steps=10):
 
     x, y = next(iter(dm.test_dataloader()))
     x = x.to(device)
-    x_flat = x.view(x.size(0), -1)
 
-    z1 = model(x_flat[:1])  # 第 1 张
-    z2 = model(x_flat[1:2])  # 第 2 张
+    z1 = model(x[:1])  # 第 1 张
+    z2 = model(x[1:2])  # 第 2 张
 
     alphas = torch.linspace(0, 1, n_steps, device=device).view(-1, 1)
     z_interp = z1 * (1 - alphas) + z2 * alphas  # (n_steps, latent_dim)
@@ -184,7 +188,6 @@ def demo_diff_heatmap(model, dm, n=8):
     device = next(model.parameters()).device
     x, _ = next(iter(dm.test_dataloader()))
     x = x.to(device)
-    x_flat = x.view(x.size(0), -1)
     x_hat = model.decoder(model(x)).view(-1, 1, 28, 28)
 
     diff = (x[:n] - x_hat[:n]).abs()  # (n,1,28,28)
@@ -198,7 +201,6 @@ def demo_per_class(model, dm, per_class=8):
     device = next(model.parameters()).device
     x, y = next(iter(dm.test_dataloader()))
     x, y = x.to(device), y.to(device)
-    x_flat = x.view(x.size(0), -1)
     x_hat = model.decoder(model(x)).view(-1, 1, 28, 28)
 
     rows = []

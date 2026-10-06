@@ -72,7 +72,7 @@ class ConvDecoder(nn.Module):
 # 组合为 Lightning 模块
 # ============================================================
 class LitAutoModel(L.LightningModule):
-    def __init__(self, latent_dim=3, lr=1e-3, ssim_weight=0.5):
+    def __init__(self, latent_dim=3, lr=1e-3, ssim_weight=0.8):
         super().__init__()
         self.save_hyperparameters()
         self.encoder = ConvEncoder(latent_dim)
