@@ -1,151 +1,153 @@
 """
-全局配置模块。
-- 从项目根目录的 .env 读取环境变量
-- 基于"根目录 + 数据集子目录"推导各数据集路径
-- 自动创建所有必要的目录
-- 支持数据集级别的超参数覆盖（如 MNIST_BATCH_SIZE 覆盖 BATCH_SIZE）
+全局配置模块（基于 pydantic-settings）。
+- 从项目根目录的 .env 读取环境变量，类型自动转换与校验（配错会在启动时报错）
+- 全局超参数直接用大写变量名（如 BATCH_SIZE）
+- 数据集覆盖用 "<前缀>_<大写字段名>"（如 MNIST_BATCH_SIZE），未设置则继承全局值
+- 路径相对路径自动基于项目根解析为绝对路径，目录自动创建
+
+用法：
+    from config import MNIST, settings
+    MNIST.data_dir                     # 数据集目录
+    MNIST.hparams.batch_size           # 数据集有效超参（覆盖或全局）
+    MNIST.checkpoint_dir / output_dir / log_dir / subdir
+    settings.retrain                   # 强制重训开关
+    settings.hparams                   # 全局超参
 """
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field, create_model
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# ============================================================
-# 项目根目录 = 本文件所在目录
-# ============================================================
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# 显式指定 .env 路径，避免受当前工作目录影响
-load_dotenv(PROJECT_ROOT / ".env")
+
+# ============================================================
+# 超参数定义：新增超参数只需在 HParams 加一个字段
+# （数据集级覆盖 MNIST_XXX 自动生效，无需其他改动）
+# ============================================================
+class HParams(BaseModel):
+    batch_size: int = 128
+    num_workers: int = 4
+    latent_dim: int = 3
+    learning_rate: float = 1e-3
+    max_epochs: int = 20
+    patience: int = 5
+    save_top_k: int = 3
+    seed: int = 42
+    ssim_weight: float = 0.5
+    cls_weight: float = 0.5
+
+
+# 数据集级覆盖模型工厂：环境变量前缀为 "<前缀>_"（如 MNIST_BATCH_SIZE）
+_EnvFile = PROJECT_ROOT / ".env"
+
+
+def _dataset_config_cls(prefix: str, name: str) -> type[BaseSettings]:
+    class _Base(BaseSettings):
+        model_config = SettingsConfigDict(env_file=_EnvFile, env_prefix=prefix, extra="ignore")
+
+    fields = {n: (f.annotation | None, None) for n, f in HParams.model_fields.items()}
+    fields["subdir"] = (str | None, None)
+    return create_model(name, __base__=_Base, **fields)
+
+
+DatasetConfig = _dataset_config_cls("MNIST_", "MnistConfig")
 
 
 # ============================================================
-# 类型转换与路径解析辅助函数
+# 根设置：全局超参数 + 根目录 + 开关 + 各数据集覆盖
 # ============================================================
-def _resolve_path(raw: str) -> Path:
-    """相对路径基于项目根解析为绝对路径，绝对路径原样返回。"""
-    p = Path(raw)
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=_EnvFile,
+        extra="ignore",
+    )
+
+    # ---------- 根目录 ----------
+    base_data_dir: Path = Path("./datasets")
+    base_checkpoint_dir: Path = Path("./checkpoints")
+    base_log_dir: Path = Path("./logs")
+    base_output_dir: Path = Path("./outputs")
+
+    # ---------- 其他开关 ----------
+    retrain: bool = False
+
+    # ---------- 数据集注册：新增数据集加一行 ----------
+    mnist: DatasetConfig = Field(default_factory=DatasetConfig)
+    # cifar10: DatasetConfig = Field(default_factory=DatasetConfig)
+
+    # ---------- 全局超参数（拍平到根，对应 .env 中的大写变量名） ----------
+    @property
+    def hparams(self) -> HParams:
+        return HParams(**{name: getattr(self, name) for name in HParams.model_fields})
+
+    batch_size: int = HParams.model_fields["batch_size"].default
+    num_workers: int = HParams.model_fields["num_workers"].default
+    latent_dim: int = HParams.model_fields["latent_dim"].default
+    learning_rate: float = HParams.model_fields["learning_rate"].default
+    max_epochs: int = HParams.model_fields["max_epochs"].default
+    patience: int = HParams.model_fields["patience"].default
+    save_top_k: int = HParams.model_fields["save_top_k"].default
+    seed: int = HParams.model_fields["seed"].default
+    ssim_weight: float = HParams.model_fields["ssim_weight"].default
+    cls_weight: float = HParams.model_fields["cls_weight"].default
+
+    def dataset_hparams(self, name: str) -> HParams:
+        """数据集有效超参：全局值 + 非None的数据集覆盖。"""
+        overrides = getattr(self, name).model_dump(exclude={"subdir"})
+        effective = {k: v for k, v in overrides.items() if v is not None}
+        return HParams(**{**self.hparams.model_dump(), **effective})
+
+
+settings = Settings()
+
+
+# ============================================================
+# 数据集视图：路径解析 + 有效超参，供业务代码直接使用
+# ============================================================
+def _resolve(p: Path) -> Path:
     return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
 
 
-def _env_path(key: str, default: str) -> Path:
-    return _resolve_path(os.getenv(key, default))
+class Dataset:
+    def __init__(self, name: str):
+        self.name = name
+        cfg = getattr(settings, name)
+        self.subdir = cfg.subdir or name
+        self.hparams: HParams = settings.dataset_hparams(name)
+
+        self.data_dir = _resolve(settings.base_data_dir / self.subdir)
+        self.checkpoint_dir = _resolve(settings.base_checkpoint_dir / self.subdir)
+        self.log_dir = _resolve(settings.base_log_dir / self.subdir)
+        self.output_dir = _resolve(settings.base_output_dir / self.subdir)
+
+        for d in (self.data_dir, self.checkpoint_dir, self.log_dir, self.output_dir):
+            d.mkdir(parents=True, exist_ok=True)
+
+    def __repr__(self):
+        return f"Dataset({self.name!r}, subdir={self.subdir!r}, data_dir={self.data_dir})"
 
 
-def _env_int(key: str, default: int) -> int:
-    return int(os.getenv(key, default))
+# 数据集单例：业务代码 `from config import MNIST`
+MNIST = Dataset("mnist")
 
-
-def _env_float(key: str, default: float) -> float:
-    return float(os.getenv(key, default))
-
-
-# ============================================================
-# 根目录
-# ============================================================
-BASE_DATA_DIR = _env_path("BASE_DATA_DIR", "./datasets")
-BASE_CHECKPOINT_DIR = _env_path("BASE_CHECKPOINT_DIR", "./checkpoints")
-BASE_LOG_DIR = _env_path("BASE_LOG_DIR", "./logs")
-BASE_OUTPUT_DIR = _env_path("BASE_OUTPUT_DIR", "./outputs")
-
-
-# ============================================================
-# 数据集路径工厂
-# ============================================================
-def dataset_dirs(subdir: str) -> dict[str, Path]:
-    """给定数据集子目录，返回该数据集的四个标准目录。"""
-    return {
-        "data": BASE_DATA_DIR / subdir,
-        "checkpoint": BASE_CHECKPOINT_DIR / subdir,
-        "log": BASE_LOG_DIR / subdir,
-        "output": BASE_OUTPUT_DIR / subdir,
-    }
-
-
-# ---------- MNIST ----------
-MNIST_SUBDIR = os.getenv("MNIST_SUBDIR", "mnist")
-_MNIST = dataset_dirs(MNIST_SUBDIR)
-MNIST_DATA_DIR = _MNIST["data"]
-MNIST_CHECKPOINT_DIR = _MNIST["checkpoint"]
-MNIST_LOG_DIR = _MNIST["log"]
-MNIST_OUTPUT_DIR = _MNIST["output"]
-
-# ---------- 新增数据集时照抄上面 5 行即可 ----------
-# CIFAR10_SUBDIR       = os.getenv("CIFAR10_SUBDIR", "cifar10")
-# _CIFAR10             = dataset_dirs(CIFAR10_SUBDIR)
-# CIFAR10_DATA_DIR       = _CIFAR10["data"]
-# CIFAR10_CHECKPOINT_DIR = _CIFAR10["checkpoint"]
-# CIFAR10_LOG_DIR        = _CIFAR10["log"]
-# CIFAR10_OUTPUT_DIR     = _CIFAR10["output"]
-
-
-# ============================================================
-# 全局训练超参数
-# ============================================================
-BATCH_SIZE = _env_int("BATCH_SIZE", 128)
-NUM_WORKERS = _env_int("NUM_WORKERS", 4)
-LATENT_DIM = _env_int("LATENT_DIM", 3)
-LEARNING_RATE = _env_float("LEARNING_RATE", 1e-3)
-MAX_EPOCHS = _env_int("MAX_EPOCHS", 20)
-PATIENCE = _env_int("PATIENCE", 5)
-SAVE_TOP_K = _env_int("SAVE_TOP_K", 3)
-SEED = _env_int("SEED", 42)
-# 设为 1/true 时强制重新训练，否则已有 checkpoint 直接复用
-RETRAIN = os.getenv("RETRAIN", "0").lower() in ("1", "true", "yes")
-
-
-# ============================================================
-# 数据集级别的超参数（未设置则回退到全局值）
-# ============================================================
-def dataset_hparams(prefix: str) -> dict:
-    """
-    返回以 prefix 开头的超参数，未设置时回退到全局值。
-    例: dataset_hparams("MNIST") 会尝试读取 MNIST_BATCH_SIZE 等。
-    """
-    return {
-        "batch_size": _env_int(f"{prefix}_BATCH_SIZE", BATCH_SIZE),
-        "num_workers": _env_int(f"{prefix}_NUM_WORKERS", NUM_WORKERS),
-        "latent_dim": _env_int(f"{prefix}_LATENT_DIM", LATENT_DIM),
-        "learning_rate": _env_float(f"{prefix}_LEARNING_RATE", LEARNING_RATE),
-        "max_epochs": _env_int(f"{prefix}_MAX_EPOCHS", MAX_EPOCHS),
-        "patience": _env_int(f"{prefix}_PATIENCE", PATIENCE),
-        "save_top_k": _env_int(f"{prefix}_SAVE_TOP_K", SAVE_TOP_K),
-        "seed": _env_int(f"{prefix}_SEED", SEED),
-    }
-
-
-MNIST_HPARAMS = dataset_hparams("MNIST")
-
-# ============================================================
-# 自动创建目录
-# ============================================================
-_ALL_DIRS = (
-    BASE_DATA_DIR, BASE_CHECKPOINT_DIR, BASE_LOG_DIR, BASE_OUTPUT_DIR,
-    MNIST_DATA_DIR, MNIST_CHECKPOINT_DIR, MNIST_LOG_DIR, MNIST_OUTPUT_DIR,
-)
-for _d in _ALL_DIRS:
-    _d.mkdir(parents=True, exist_ok=True)
 
 # ============================================================
 # 调试入口：python config.py
 # ============================================================
 if __name__ == "__main__":
     print(f"PROJECT_ROOT = {PROJECT_ROOT}")
-    print("\n[根目录]")
-    print(f"  BASE_DATA_DIR       = {BASE_DATA_DIR}")
-    print(f"  BASE_CHECKPOINT_DIR = {BASE_CHECKPOINT_DIR}")
-    print(f"  BASE_LOG_DIR        = {BASE_LOG_DIR}")
-    print(f"  BASE_OUTPUT_DIR     = {BASE_OUTPUT_DIR}")
-    print("\n[MNIST]")
-    print(f"  DATA_DIR       = {MNIST_DATA_DIR}")
-    print(f"  CHECKPOINT_DIR = {MNIST_CHECKPOINT_DIR}")
-    print(f"  LOG_DIR        = {MNIST_LOG_DIR}")
-    print(f"  OUTPUT_DIR     = {MNIST_OUTPUT_DIR}")
+    print(f"retrain = {settings.retrain}")
     print("\n[全局超参]")
-    print(f"  BATCH_SIZE={BATCH_SIZE}  MAX_EPOCHS={MAX_EPOCHS}  SEED={SEED}")
-    print("\n[MNIST 有效超参]")
-    for k, v in MNIST_HPARAMS.items():
-        print(f"  {k:15s} = {v}")
+    for k, v in settings.hparams.model_dump().items():
+        print(f"  {k:15} = {v}")
+    print(f"\n{MNIST}")
+    print("  [有效超参]（括号 = 来自数据集覆盖）")
+    overrides = settings.mnist.model_dump(exclude={"subdir"})
+    for k, v in MNIST.hparams.model_dump().items():
+        mark = " (覆盖)" if overrides.get(k) is not None else ""
+        print(f"    {k:15} = {v}{mark}")
 
 # ============================================================
 # matplotlib 中文字体配置
@@ -156,7 +158,6 @@ import matplotlib.pyplot as plt
 
 def setup_matplotlib_chinese():
     """配置 matplotlib 支持中文显示，并修复负号问题。"""
-    # 按优先级尝试可用字体
     preferred_fonts = [
         "Microsoft YaHei",  # Windows 微软雅黑
         "SimHei",  # Windows 黑体
@@ -177,22 +178,3 @@ def setup_matplotlib_chinese():
 
     plt.rcParams["axes.unicode_minus"] = False  # 修复负号显示
     return chosen
-
-
-# ============================================================
-# 对外暴露
-# ============================================================
-__all__ = [
-    "PROJECT_ROOT",
-    # 根目录
-    "BASE_DATA_DIR", "BASE_CHECKPOINT_DIR", "BASE_LOG_DIR", "BASE_OUTPUT_DIR",
-    # MNIST
-    "MNIST_DATA_DIR", "MNIST_CHECKPOINT_DIR", "MNIST_LOG_DIR", "MNIST_OUTPUT_DIR",
-    "MNIST_HPARAMS",
-    # 全局超参
-    "BATCH_SIZE", "NUM_WORKERS", "LATENT_DIM", "LEARNING_RATE",
-    "MAX_EPOCHS", "PATIENCE", "SAVE_TOP_K", "SEED", "RETRAIN",
-    # 工具
-    "dataset_dirs", "dataset_hparams",
-    "setup_matplotlib_chinese"
-]

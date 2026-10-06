@@ -72,29 +72,44 @@ class ConvDecoder(nn.Module):
 # 组合为 Lightning 模块
 # ============================================================
 class LitAutoModel(L.LightningModule):
-    def __init__(self, latent_dim=3, lr=1e-3, ssim_weight=0.8):
+    def __init__(self,
+                 latent_dim=3,
+                 lr=1e-3,
+                 ssim_weight=0.8,
+                 cls_weight=0.5):
         super().__init__()
         self.save_hyperparameters()
         self.encoder = ConvEncoder(latent_dim)
         self.decoder = ConvDecoder(latent_dim)
+        self.classifier = nn.Linear(latent_dim, 10)
+
         self.lr = lr
         self.ssim_weight = ssim_weight
+        self.cls_weight = cls_weight
 
     def forward(self, x):
         return self.encoder(x)
 
     def _shared_step(self, batch, stage):
-        x, _ = batch
+        x, y = batch
         z = self.encoder(x)
-        x_hat = self.decoder(z)  # (1)
+        x_hat = self.decoder(z)
+        logits = self.classifier(z)
 
+        # 损失
         l1 = F.l1_loss(x, x_hat)
         ssim = ssim_loss(x, x_hat)
-        loss = l1 + self.ssim_weight * ssim  # (2)
+        cls = F.cross_entropy(logits, y)
+        loss = l1 + self.ssim_weight * ssim + self.cls_weight * cls
+
+        # 分类准确度
+        acc = (logits.argmax(dim=1) == y).float().mean()
 
         self.log(f"{stage}_loss", loss, prog_bar=True, on_epoch=True)
         self.log(f"{stage}_l1", l1, on_epoch=True)
         self.log(f"{stage}_ssim", ssim, on_epoch=True)
+        self.log(f"{stage}_cls", cls, on_epoch=True)
+        self.log(f"{stage}_acc", acc, prog_bar=True, on_epoch=True)
 
         return loss, x, x_hat
 
@@ -111,6 +126,14 @@ class LitAutoModel(L.LightningModule):
     def test_step(self, batch, batch_idx):
         loss, _, _ = self._shared_step(batch, stage='test')
         return loss
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, y = batch
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        logits = self.classifier(z)
+        probs = F.softmax(logits, dim=1)
+        return x_hat, probs, y
 
     def _log_reconstructions(self, x, x_hat, name):
         n = min(8, x.size(0))

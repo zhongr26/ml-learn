@@ -13,8 +13,8 @@ torchvision==0.20.1
 torchaudio==2.5.1
 
 # ---------- 训练框架 ----------
-# Lightning 2.5.1 与 PyTorch 2.6 和 Transformers 4.53 兼容
-lightning==2.5.1
+# 2.6.6 修复 PYSEC-2026-3972 / PYSEC-2026-3624
+lightning>=2.6.6
 
 # ---------- 数据处理与科学计算 ----------
 numpy>=1.26.0,<2.0.0
@@ -27,17 +27,22 @@ matplotlib>=3.8.0
 seaborn>=0.13.0
 
 # ---------- 深度学习工具与模型库 ----------
-# 锁定 transformers 版本以确保与 torch 2.6 和 lightning 2.5.1 的兼容性
-transformers==4.53.0
+# >=5.11.0 修复 PYSEC-2025-211~218 / PYSEC-2026-2288~2290 / PYSEC-2026-3929 / PYSEC-2026-4174
+transformers>=5.11.0
+# >=2026.6.0 修复 CVE-2026-104851
+fsspec>=2026.6.0
 datasets>=2.20.0
 accelerate>=0.33.0
 
 # ---------- 辅助工具 ----------
 pillow>=12.3.0
 python-dotenv>=1.0.1
+pydantic-settings>=2.0.0
+umap-learn>=0.5.0
 
 # ---------- 实验管理与监控 ----------
 tensorboard>=2.17.0
 
 # ---------- 工程化与部署 ----------
 joblib>=1.4.0
+pydantic~=2.13.5

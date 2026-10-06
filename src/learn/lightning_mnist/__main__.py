@@ -8,6 +8,7 @@ from src.learn.lightning_mnist.viz import (
     demo_interpolation,
     demo_traversal,
     demo_tsne_umap,
+    demo_predictions,
 )
 
 
@@ -31,6 +32,9 @@ def main():
     # 高维潜在空间降维可视化
     demo_tsne_umap(model, dm, max_samples=3000, method="tsne")
     demo_tsne_umap(model, dm, max_samples=3000, method="umap")
+
+    # 可视化预测结果
+    demo_predictions(model, dm)
 
 
 if __name__ == "__main__":

@@ -4,14 +4,14 @@ import torch.utils.data as data
 import torchvision.datasets as datasets
 import torchvision.transforms as T
 
-from config import (MNIST_DATA_DIR, MNIST_HPARAMS)
+from config import MNIST
 
 
 class MNISTDataModule(L.LightningDataModule):
     def __init__(self,
-                 data_dir=MNIST_DATA_DIR,
-                 batch_size=MNIST_HPARAMS["batch_size"],
-                 num_workers=MNIST_HPARAMS["num_workers"]):
+                 data_dir=MNIST.data_dir,
+                 batch_size=MNIST.hparams.batch_size,
+                 num_workers=MNIST.hparams.num_workers):
         super().__init__()
 
         # initialized in self.setup()
