@@ -6,7 +6,7 @@ import torch.utils.data as data
 import torchvision as tv
 from torchvision.utils import make_grid, save_image
 
-from config import MNIST
+from config import MNIST_CFG
 from config import setup_matplotlib_chinese
 
 # DataLoader worker 进程通过 spawn 重新导入本模块，跳过字体配置避免重复扫描
@@ -24,7 +24,7 @@ def demo_reconstruction(model, n=8):
         tv.transforms.ToTensor(),
         tv.transforms.Normalize((0.1307,), (0.3081,)),
     ])
-    test_set = tv.datasets.MNIST(str(MNIST.data_dir), train=False, transform=transform)
+    test_set = tv.datasets.MNIST(str(MNIST_CFG.data_dir), train=False, transform=transform)
     loader = data.DataLoader(test_set, batch_size=n, shuffle=True)
     x, y = next(iter(loader))
     x = x.to(device)
@@ -36,7 +36,7 @@ def demo_reconstruction(model, n=8):
     x_vis = x * std + mean
     x_hat_vis = x_hat * std + mean
 
-    save_fig = MNIST.output_dir / "recon_demo.png"
+    save_fig = MNIST_CFG.output_dir / "recon_demo.png"
     grid = make_grid(torch.cat([x_vis.cpu(), x_hat_vis.cpu()], dim=0),
                      nrow=n, normalize=False)
     save_image(grid, save_fig)
@@ -51,7 +51,7 @@ def demo_reconstruction(model, n=8):
         axes[1, i].set_title("重建")
         axes[1, i].axis("off")
     plt.tight_layout()
-    save_grid_fig = MNIST.output_dir / "recon_grid.png"
+    save_grid_fig = MNIST_CFG.output_dir / "recon_grid.png"
     plt.savefig(save_grid_fig, dpi=120)
     plt.show()
     print(f"matplotlib 对比图已保存: {save_grid_fig}")
@@ -66,7 +66,7 @@ def demo_latent_space(model):
         tv.transforms.ToTensor(),
         tv.transforms.Normalize((0.1307,), (0.3081,)),
     ])
-    test_set = tv.datasets.MNIST(str(MNIST.data_dir), train=False, transform=transform)
+    test_set = tv.datasets.MNIST(str(MNIST_CFG.data_dir), train=False, transform=transform)
     loader = data.DataLoader(test_set, batch_size=512, shuffle=False)
 
     zs, ys = [], []
@@ -81,8 +81,8 @@ def demo_latent_space(model):
     ax = fig.add_subplot(111, projection="3d")
     sc = ax.scatter(z[:, 0], z[:, 1], z[:, 2], c=y, cmap="tab10", s=5)
     plt.colorbar(sc, label="digit")
-    ax.set_title("MNIST 3D 潜在空间")
-    save_fig = MNIST.output_dir / "latent_space.png"
+    ax.set_title("MNIST_CFG 3D 潜在空间")
+    save_fig = MNIST_CFG.output_dir / "latent_space.png"
     plt.savefig(save_fig, dpi=120)
     plt.show()
     print(f"潜在空间图已保存: {save_fig}")
@@ -134,11 +134,11 @@ def demo_tsne_umap(model, dm, max_samples=3000, method="tsne"):
     sc = ax.scatter(z_2d[:, 0], z_2d[:, 1], c=y, cmap="tab10",
                     s=5, alpha=0.7)
     plt.colorbar(sc, label="数字标签", ticks=range(10))
-    ax.set_title(f"MNIST 潜在空间 ({method.upper()}, n={max_samples})")
+    ax.set_title(f"MNIST_CFG 潜在空间 ({method.upper()}, n={max_samples})")
     ax.set_xticks([]);
     ax.set_yticks([])
 
-    save_fig = MNIST.output_dir / f"latent_{method}.png"
+    save_fig = MNIST_CFG.output_dir / f"latent_{method}.png"
     plt.tight_layout()
     plt.savefig(save_fig, dpi=120)
     plt.show()
@@ -162,7 +162,7 @@ def demo_interpolation(model, dm, n_steps=10):
     x_interp = model.decoder(z_interp).view(-1, 1, 28, 28)
 
     grid = make_grid(x_interp, nrow=n_steps, normalize=True)
-    save_image(grid, MNIST.output_dir / "interpolation.png")
+    save_image(grid, MNIST_CFG.output_dir / "interpolation.png")
     print(f"插值图已保存 (数字 {y[0].item()} → {y[1].item()})")
 
 
@@ -180,7 +180,7 @@ def demo_traversal(model, dm, dim=0, n_steps=10, span=3.0):
 
     x = model.decoder(zs).view(-1, 1, 28, 28)
     grid = make_grid(x, nrow=n_steps, normalize=True)
-    save_image(grid, MNIST.output_dir / f"traversal_dim{dim}.png")
+    save_image(grid, MNIST_CFG.output_dir / f"traversal_dim{dim}.png")
     print(f"维度 {dim} 遍历图已保存")
 
 
@@ -194,7 +194,7 @@ def demo_diff_heatmap(model, dm, n=8):
 
     diff = (x[:n] - x_hat[:n]).abs()  # (n,1,28,28)
     grid = make_grid(diff, nrow=n, normalize=True)
-    save_image(grid, MNIST.output_dir / "diff_heatmap.png")
+    save_image(grid, MNIST_CFG.output_dir / "diff_heatmap.png")
 
 
 @torch.no_grad()
@@ -213,7 +213,7 @@ def demo_per_class(model, dm, per_class=8):
         rows.append(x[idx])
         rows.append(x_hat[idx])
     grid = make_grid(torch.cat(rows), nrow=per_class, normalize=True)
-    save_image(grid, MNIST.output_dir / "per_class_grid.png")
+    save_image(grid, MNIST_CFG.output_dir / "per_class_grid.png")
 
 
 @torch.no_grad()
@@ -246,7 +246,7 @@ def demo_predictions(model, dm, n=8):
         axes[2, i].set_ylim(0, 1)
 
     plt.tight_layout()
-    save_fig = MNIST.output_dir / "predictions.png"
+    save_fig = MNIST_CFG.output_dir / "predictions.png"
     plt.savefig(save_fig, dpi=120)
     plt.show()
     print(f"预测可视化已保存: {save_fig}")

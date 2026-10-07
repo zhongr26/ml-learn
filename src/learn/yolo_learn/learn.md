@@ -1,6 +1,12 @@
 # yolo-learn 学习日志
 
 ## 当前状态（2026-10-07）
+- 阶段 5（基础整合）完成：入口 `python -m src.learn.yolo_learn.__main__` 串起 训练→数据信息→推理可视化→TorchScript 导出。
+- 工程修正：
+  - 权重统一放 `checkpoints/yolo/`（`resolve_weights()` 用 ultralytics 的 `attempt_download_asset` 直接下载到目标路径，不再散落 cwd/src）。
+  - `YOLOModel.predict` 不再存盘，带框结果图由 viz 统一保存到 `outputs/yolo/inference/`，消除重复文件。
+  - `__main__` 中 `YOLOModel(best)` 使用训练产出的 best 权重（此前误用预训练权重）。
+  - AMP 默认关闭（`YOLO_AMP`，MX450 上混合精度出 NaN）；`YOLO_BATCH_SIZE<=0` 时 autobatch（-1）。
 - 阶段 1 完成：`src/learn/yolo_learn/` 模块搭好，对齐 lightning_mnist 架构（data/model/train/io_utils/viz/__main__）。
 - COCO 数据：默认 `coco8.yaml`（迷你验证集，首次训练自动下载到 `datasets/yolo/`）；`.env.yolo` 中 `YOLO_DATA_YAML=coco.yaml` 切完整版（约 19GB）。
 - 已验证：模块导入、YOLO 推理、config 解析（OS env > .env.yolo > .env > 默认值）。训练全流程未跑（按要求跳过），首次运行 `python -m src.learn.yolo_learn.__main__` 即可。

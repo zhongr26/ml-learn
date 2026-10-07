@@ -8,19 +8,20 @@ from lightning.pytorch import callbacks
 from lightning.pytorch.callbacks import EarlyStopping, RichModelSummary, RichProgressBar
 from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
 
-from config import MNIST, settings
+from config import MNIST_CFG, settings
 from .data import MNISTDataModule
 from .model import LitAutoModel
 
 
 class _NoTips(logging.Filter):
     """过滤 litlogger 推广提示等噪声日志。"""
+
     def filter(self, record):
         return "litlogger" not in record.getMessage()
 
 
 def _setup_logging():
-    log_file = MNIST.log_dir / f"train_{datetime.now():%Y%m%d_%H%M%S}.log"
+    log_file = MNIST_CFG.log_dir / f"train_{datetime.now():%Y%m%d_%H%M%S}.log"
     no_tips = _NoTips()
     handlers = [logging.StreamHandler(), logging.FileHandler(log_file, encoding="utf-8")]
     for h in handlers:
@@ -38,10 +39,10 @@ def _setup_logging():
 
 
 def train():
-    hp = MNIST.hparams
+    hp = MNIST_CFG.hparams
     log_file = _setup_logging()
     print(f"[train] 日志文件: {log_file}")
-    ckpt_dir = MNIST.checkpoint_dir / "mnist"
+    ckpt_dir = MNIST_CFG.checkpoint_dir / "mnist"
     last_ckpt = ckpt_dir / "last.ckpt"
 
     # 已有训练好的 checkpoint 时跳过训练，直接复用（.env 中 RETRAIN=1 强制重新训练）
@@ -65,8 +66,8 @@ def train():
         mode="max",
         patience=hp.patience,
     )
-    logger = [TensorBoardLogger(save_dir=MNIST.log_dir, name="mnist_autoencoder"),
-              CSVLogger(save_dir=MNIST.log_dir, name="mnist_autoencoder_csv")]
+    logger = [TensorBoardLogger(save_dir=MNIST_CFG.log_dir, name="mnist_autoencoder"),
+              CSVLogger(save_dir=MNIST_CFG.log_dir, name="mnist_autoencoder_csv")]
 
     trainer = L.Trainer(
         max_epochs=hp.max_epochs,

@@ -1,9 +1,8 @@
 """
-YOLO 项目配置：HParams（含项目专属字段）+ Dataset 单例。
+YOLO_CFG 项目配置：HParams（含项目专属字段）+ Dataset 单例。
 
 环境变量前缀 YOLO_，读 .env.yolo（项目覆盖，可选）与 .env（全局默认）。
 """
-from pydantic import BaseModel
 
 from config.base import CommonHParams, Dataset, _dataset_config_cls
 
@@ -14,8 +13,9 @@ class YoloHParams(CommonHParams):
     conf: float = 0.25  # 推理置信度阈值
     iou: float = 0.7  # NMS IoU 阈值
     imgsz: int = 640  # 推理/训练输入尺寸
+    amp: bool = False  # 混合精度；MX450 等老 GPU 上会出 loss NaN，新卡可设 true 提速
 
 
-YoloConfig = _dataset_config_cls("yolo", "YOLO_", YoloHParams)
+YoloLearnConfig = _dataset_config_cls("yolo", "YOLO_", YoloHParams)
 
-YOLO = Dataset("yolo", "YOLO_", YoloHParams)
+YOLO_CFG = Dataset("yolo", "YOLO_", YoloHParams)
