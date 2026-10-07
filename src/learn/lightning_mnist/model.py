@@ -117,6 +117,22 @@ class LitAutoModel(L.LightningModule):
         loss, _, _ = self._shared_step(batch, stage='train')
         return loss
 
+    # 伪代码
+    # torch.set_grad_enabled(True)
+    # for batch_idx, batch in enumerate(train_dataloader):
+    #     loss = training_step(batch, batch_idx)
+    #     optimizer.zero_grad()
+    #     loss.backward()
+    #     optimizer.step()
+    #
+    #     if validate_at_some_point:
+    #         torch.set_grad_enabled(False)
+    #         model.eval()
+    #         for val_batch_idx, val_batch in enumerate(val_dataloader):
+    #             val_out = model.validation_step(val_batch, val_batch_idx)
+    #         torch.set_grad_enabled(True)   # enable grads + batchnorm + dropout
+    #         model.train()
+
     def validation_step(self, batch, batch_idx):
         loss, x, x_hat = self._shared_step(batch, stage='val')
         if batch_idx == 0:
