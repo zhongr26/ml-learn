@@ -11,6 +11,7 @@
 """
 from config.base import PROJECT_ROOT, Dataset, setup_matplotlib_chinese
 from config.global_config import settings
+from config.mini_yolo_config import MINI_YOLO_CFG
 from config.mnist_config import MNIST_CFG
 from config.yolo_config import YOLO_CFG
 
@@ -19,6 +20,7 @@ __all__ = [
     "settings",
     "MNIST_CFG",
     "YOLO_CFG",
+    "MINI_YOLO_CFG",
     "Dataset",
     "setup_matplotlib_chinese",
 ]
